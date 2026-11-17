@@ -1,0 +1,318 @@
+{
+  "versione": 2,
+  "aggiornatoIl": "2026-11-16T09:00:00.000Z",
+  "impostazioni": {
+    "sogliaArretratoPercentuale": 50,
+    "giorniRitardoRichiesta": 14,
+    "giornoScadenzaAffitto": 5,
+    "inizioMonitoraggio": "2026-09",
+    "avvisoScadenzeGiorni": 30,
+    "cartellaContratti": "01 Contratti"
+  },
+  "unita": [
+    {
+      "id": "Via Esempio 1 - Appartamento A",
+      "immobile": "Via Esempio 1",
+      "nome": "Appartamento A",
+      "tipo": "Residenziale",
+      "stato": "Locata",
+      "foglio": "10",
+      "particella": "100",
+      "subalterno": "1"
+    },
+    {
+      "id": "Via Esempio 1 - Appartamento B",
+      "immobile": "Via Esempio 1",
+      "nome": "Appartamento B",
+      "tipo": "Residenziale",
+      "stato": "Locata",
+      "foglio": "10",
+      "particella": "100",
+      "subalterno": "2"
+    },
+    {
+      "id": "Via Esempio 1 - Appartamento C",
+      "immobile": "Via Esempio 1",
+      "nome": "Appartamento C",
+      "tipo": "Residenziale",
+      "stato": "Comodato d'uso gratuito",
+      "foglio": "10",
+      "particella": "100",
+      "subalterno": "3"
+    },
+    {
+      "id": "Via Esempio 1 - Box",
+      "immobile": "Via Esempio 1",
+      "nome": "Box",
+      "tipo": "Pertinenza (garage, box, cantina)",
+      "stato": "Comodato d'uso gratuito",
+      "foglio": "10",
+      "particella": "100",
+      "subalterno": "4"
+    },
+    {
+      "id": "Piazza Prova 2 - Negozio",
+      "immobile": "Piazza Prova 2",
+      "nome": "Negozio",
+      "tipo": "Commerciale",
+      "stato": "Locata",
+      "foglio": "20",
+      "particella": "200",
+      "subalterno": "5"
+    },
+    {
+      "id": "Piazza Prova 2 - Magazzino",
+      "immobile": "Piazza Prova 2",
+      "nome": "Magazzino",
+      "tipo": "Commerciale",
+      "stato": "Non locata"
+    }
+  ],
+  "inquilini": [
+    {
+      "id": "Rossi",
+      "cognome": "Rossi",
+      "nome": "Mario",
+      "campi": [
+        {
+          "etichetta": "Telefono",
+          "valore": "320 000 0001"
+        },
+        {
+          "etichetta": "Email",
+          "valore": "mario.rossi@esempio.it"
+        },
+        {
+          "etichetta": "Codice fiscale",
+          "valore": "XXXXXX00X00X000X"
+        }
+      ]
+    },
+    {
+      "id": "Bianchi",
+      "cognome": "Bianchi",
+      "nome": "Anna",
+      "campi": [
+        {
+          "etichetta": "Telefono",
+          "valore": "320 000 0002"
+        },
+        {
+          "etichetta": "Email",
+          "valore": "anna.bianchi@esempio.it"
+        }
+      ]
+    },
+    {
+      "id": "Verdi",
+      "cognome": "Verdi",
+      "nome": "Sara",
+      "campi": [
+        {
+          "etichetta": "Telefono",
+          "valore": "320 000 0003"
+        }
+      ]
+    },
+    {
+      "id": "Neri",
+      "cognome": "Neri",
+      "nome": "Luca",
+      "campi": [
+        {
+          "etichetta": "Telefono",
+          "valore": "320 000 0004"
+        },
+        {
+          "etichetta": "Email",
+          "valore": "luca.neri@esempio.it"
+        }
+      ]
+    }
+  ],
+  "contratti": [
+    {
+      "id": "A",
+      "unita": "Via Esempio 1 - Appartamento A",
+      "tipo": "3+2 concordato",
+      "regime": "Cedolare secca 10%",
+      "inquilino": "Rossi",
+      "inizio": "2023-05-01",
+      "durataAnni": 3,
+      "rinnovoAnni": 2,
+      "canone": 380,
+      "deposito": 760,
+      "modalita": "Bonifico",
+      "istat": false,
+      "preavvisoMesi": 6
+    },
+    {
+      "id": "B",
+      "unita": "Via Esempio 1 - Appartamento B",
+      "tipo": "4+4 libero",
+      "regime": "Ordinario (IRPEF)",
+      "inquilino": "Bianchi",
+      "inizio": "2019-09-01",
+      "durataAnni": 4,
+      "rinnovoAnni": 4,
+      "canone": 495,
+      "deposito": 990,
+      "modalita": "Bonifico",
+      "istat": true,
+      "percentualeIstat": 100,
+      "preavvisoMesi": 6
+    },
+    {
+      "id": "C",
+      "unita": "Via Esempio 1 - Appartamento C",
+      "pertinenza": "Via Esempio 1 - Box",
+      "tipo": "Comodato d'uso gratuito",
+      "regime": "Non applicabile",
+      "inquilino": "Verdi",
+      "inizio": "2025-04-01",
+      "canone": 0,
+      "modalita": "Bonifico",
+      "deposito": 0
+    },
+    {
+      "id": "N",
+      "unita": "Piazza Prova 2 - Negozio",
+      "tipo": "Commerciale 6+6",
+      "regime": "Ordinario (IRPEF)",
+      "inquilino": "Neri",
+      "inizio": "2024-02-01",
+      "durataAnni": 6,
+      "rinnovoAnni": 6,
+      "canone": 620,
+      "deposito": 1240,
+      "modalita": "Bonifico",
+      "istat": true,
+      "percentualeIstat": 100,
+      "preavvisoMesi": 12
+    }
+  ],
+  "pagamenti": [
+    {
+      "data": "2026-09-03",
+      "unita": "Via Esempio 1 - Appartamento A",
+      "inquilino": "Rossi",
+      "mese": "2026-09",
+      "voce": "Canone",
+      "importo": 380
+    },
+    {
+      "data": "2026-10-03",
+      "unita": "Via Esempio 1 - Appartamento A",
+      "inquilino": "Rossi",
+      "mese": "2026-10",
+      "voce": "Canone",
+      "importo": 380
+    },
+    {
+      "data": "2026-11-03",
+      "unita": "Via Esempio 1 - Appartamento A",
+      "inquilino": "Rossi",
+      "mese": "2026-11",
+      "voce": "Canone",
+      "importo": 380
+    },
+    {
+      "data": "2026-09-05",
+      "unita": "Via Esempio 1 - Appartamento B",
+      "inquilino": "Bianchi",
+      "mese": "2026-09",
+      "voce": "Canone",
+      "importo": 495
+    },
+    {
+      "data": "2026-10-12",
+      "unita": "Via Esempio 1 - Appartamento B",
+      "inquilino": "Bianchi",
+      "mese": "2026-10",
+      "voce": "Canone",
+      "importo": 250
+    },
+    {
+      "data": "2026-09-04",
+      "unita": "Piazza Prova 2 - Negozio",
+      "inquilino": "Neri",
+      "mese": "2026-09",
+      "voce": "Canone",
+      "importo": 620
+    },
+    {
+      "data": "2026-10-04",
+      "unita": "Piazza Prova 2 - Negozio",
+      "inquilino": "Neri",
+      "mese": "2026-10",
+      "voce": "Canone",
+      "importo": 620
+    },
+    {
+      "data": "2026-11-05",
+      "unita": "Piazza Prova 2 - Negozio",
+      "inquilino": "Neri",
+      "mese": "2026-11",
+      "voce": "Canone",
+      "importo": 620
+    }
+  ],
+  "richieste": [
+    {
+      "dataInvio": "2026-10-20",
+      "unita": "Via Esempio 1 - Appartamento A",
+      "inquilino": "Rossi",
+      "descrizione": "Quota spese comuni ago-ott",
+      "importo": 37.8,
+      "giorni": 14
+    }
+  ],
+  "scadenze": [
+    {
+      "descrizione": "IMU saldo",
+      "riferimento": "Tutti gli immobili",
+      "data": "2026-12-16",
+      "ricorrenza": "Annuale",
+      "avvisoGiorni": 30
+    },
+    {
+      "descrizione": "Assicurazione fabbricato",
+      "riferimento": "Via Esempio 1",
+      "data": "2027-04-30",
+      "ricorrenza": "Annuale",
+      "avvisoGiorni": 30
+    },
+    {
+      "descrizione": "TARI",
+      "riferimento": "Piazza Prova 2 - Magazzino"
+    }
+  ],
+  "spese": [
+    {
+      "data": "2026-04-14",
+      "riferimento": "Via Esempio 1",
+      "categoria": "Manutenzione",
+      "descrizione": "Caldaia",
+      "importo": 215
+    },
+    {
+      "data": "2026-06-16",
+      "riferimento": "Tutti gli immobili",
+      "categoria": "IMU",
+      "descrizione": "IMU acconto",
+      "importo": 1080
+    }
+  ],
+  "fotovoltaico": [
+    {
+      "mese": "2026-06",
+      "riferimento": "Via Esempio 1 - Appartamento A",
+      "prodottaKwh": 610,
+      "cedutaKwh": 340,
+      "prezzoMedio": 0.27,
+      "bonificoGse": 125,
+      "dataAccredito": "2026-07-22",
+      "dataBilancio": "2026-09-15"
+    }
+  ]
+}
