@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vite';
 import { resolve } from 'node:path';
+import { readFileSync, writeFileSync } from 'node:fs';
 
 /**
  * Regole di sicurezza del sito (Content Security Policy), aggiunte solo nella versione pubblicata:
@@ -27,10 +28,20 @@ const sicurezza = (): Plugin => ({
     html.replace('<meta charset="UTF-8" />', `<meta charset="UTF-8" />\n    <meta http-equiv="Content-Security-Policy" content="${CSP}" />\n    <meta name="referrer" content="no-referrer" />`),
 });
 
+/** Dà al service worker un nome di cache nuovo a ogni pubblicazione (così le versioni vecchie si cancellano). */
+const versioneCache = (): Plugin => ({
+  name: 'versione-cache',
+  apply: 'build',
+  closeBundle() {
+    const f = resolve(import.meta.dirname, 'dist/sw.js');
+    writeFileSync(f, readFileSync(f, 'utf8').replace('__VERSIONE__', Date.now().toString(36)));
+  },
+});
+
 export default defineConfig({
   // Percorsi relativi: il sito funziona sia in locale sia su https://<utente>.github.io/<repository>/
   base: './',
-  plugins: [sicurezza()],
+  plugins: [sicurezza(), versioneCache()],
   server: { port: 5173, strictPort: true },
   preview: { port: 4173, strictPort: true },
   build: {

@@ -128,6 +128,17 @@
           "valore": "luca.neri@esempio.it"
         }
       ]
+    },
+    {
+      "id": "Gialli",
+      "cognome": "Gialli",
+      "nome": "Paolo",
+      "campi": [
+        {
+          "etichetta": "Telefono",
+          "valore": "320 000 0005"
+        }
+      ]
     }
   ],
   "contratti": [
@@ -189,6 +200,18 @@
       "istat": true,
       "percentualeIstat": 100,
       "preavvisoMesi": 12
+    },
+    {
+      "id": "M",
+      "unita": "Piazza Prova 2 - Magazzino",
+      "tipo": "Transitorio",
+      "regime": "Ordinario (IRPEF)",
+      "inquilino": "Gialli",
+      "inizio": "2025-07-01",
+      "fine": "2026-06-30",
+      "durataAnni": 1,
+      "canone": 210,
+      "modalita": "Bonifico"
     }
   ],
   "pagamenti": [

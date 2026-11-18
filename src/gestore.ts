@@ -4,8 +4,8 @@
 
 import { CONFIG } from './config';
 import type { Dati, Pagamento, Richiesta, Spesa, VoceFotovoltaico } from './modello';
-import { attesoMensile, contrattiAttivi, inquilinoDi, nomeContratto, pagatoNelMese } from './calcoli';
-import { aggiungiMesi, esc, euro, leggiImporto, meseDi, normalizzaMese, oggi } from './formato';
+import { attesoMensile, contrattiAttivi, inquilinoDi, mesiArretrati, nomeContratto, pagatoNelMese } from './calcoli';
+import { aggiungiAData, aggiungiMesi, data, esc, euro, leggiImporto, meseDi, meseEsteso, normalizzaMese, oggi } from './formato';
 import { icona } from './icone';
 import * as dbx from './dropbox';
 
@@ -24,6 +24,9 @@ export async function salvaConCopia(cartella: string, fileRelativo: string, cont
   const base = nome.replace(/\.json$/, '');
   const cartellaBackup = cartella + '/_app/backup';
   if (revAttesa) {
+    // Prima si controlla che su Dropbox ci sia ancora la versione attesa: in caso di conflitto
+    // ci si ferma subito, senza consumare le copie di sicurezza buone.
+    if ((await dbx.versioneFile(percorso)) !== revAttesa) throw new dbx.ConflittoVersione('I dati su Dropbox sono stati modificati nel frattempo.');
     await dbx.copiaFile(percorso, `${cartellaBackup}/${base}-${timbro()}.json`);
     const vecchie = (await dbx.elencaFile(cartellaBackup)).filter((f) => f.startsWith(base + '-')).sort();
     for (const f of vecchie.slice(0, Math.max(0, vecchie.length - CONFIG.copieDiSicurezza))) {
@@ -303,4 +306,87 @@ export function pulsanteRegistra(aperto: boolean): string {
       }
       <button class="fab" data-registra aria-expanded="${aperto}">${icona(aperto ? 'chiudi' : 'piu')}<span>${aperto ? 'Chiudi' : 'Registra'}</span></button>
     </div>`;
+}
+
+// ---------- impostazioni (soglie degli avvisi) ----------
+
+/** Schermata Impostazioni: le soglie si cambiano qui, nessun valore è scritto nel codice. */
+export function impostazioni(d: Dati, notifiche: 'attive' | 'spente' | 'bloccate' | 'non_disponibili'): string {
+  const i = d.impostazioni;
+  const riga = (nome: string, etichetta: string, valore: string | number, aiuto: string, tipo = 'number', extra = '') =>
+    `<label class="f">${esc(etichetta)}<input type="${tipo}" name="${nome}" value="${esc(valore)}" ${extra} required><span class="aiuto">${esc(aiuto)}</span></label>`;
+  const statoNotifiche = {
+    attive: `<p class="hint">Attive: all'apertura dell'app ricevi una notifica di Windows se ci sono avvisi urgenti.</p>`,
+    spente: `<button type="button" class="secondario largo" data-attiva-notifiche>Attiva le notifiche di Windows</button>`,
+    bloccate: `<p class="aiuto">Bloccate dal browser: si riattivano dalle impostazioni del sito (lucchetto accanto all'indirizzo).</p>`,
+    non_disponibili: `<p class="aiuto">Questo browser non supporta le notifiche.</p>`,
+  }[notifiche];
+  return `
+    <form class="scheda impostazioni" novalidate>
+      <h3>Avvisi sui pagamenti</h3>
+      ${riga('soglia', 'Avvisa quando l’arretrato raggiunge (% del canone mensile)', i.sogliaArretratoPercentuale, 'Es. 50 = metà di un mese di canone.', 'number', 'min="1" max="1000"')}
+      ${riga('giornoScadenza', 'Giorno del mese entro cui va pagato l’affitto', i.giornoScadenzaAffitto, 'Prima di questo giorno l’affitto del mese è grigio, dopo diventa rosso.', 'number', 'min="1" max="28"')}
+      ${riga('giorniRichiesta', 'Avvisa se una richiesta non è pagata entro (giorni)', i.giorniRitardoRichiesta, 'Valore proposto quando registri una richiesta.', 'number', 'min="1" max="365"')}
+      ${riga('inizio', 'Controlla i pagamenti a partire dal mese', i.inizioMonitoraggio, 'I mesi precedenti non generano arretrati (formato aaaa-mm).', 'text', 'pattern="\d{4}-\d{2}" placeholder="aaaa-mm"')}
+      <h3>Scadenze</h3>
+      ${riga('anticipo', 'Avvisa delle scadenze con (giorni di anticipo)', i.avvisoScadenzeGiorni, 'Vale per le scadenze che non hanno un anticipo proprio.', 'number', 'min="1" max="365"')}
+      <p class="errore-form" role="alert"></p>
+      <button type="submit" class="primario largo">${icona('spunta')} Salva le impostazioni</button>
+      <h3>Notifiche</h3>
+      ${statoNotifiche}
+      <p class="aiuto">Le regole fiscali (cedolare, ISTAT, imposta di registro, date IMU) possono cambiare: le date si correggono nel foglio Scadenze dell’Excel.</p>
+    </form>`;
+}
+
+export function applicaImpostazioni(d: Dati, form: HTMLFormElement): { dati: Dati } | { errore: string } {
+  const v = (n: string) => ((form.elements.namedItem(n) as HTMLInputElement).value ?? '').trim();
+  const intero = (n: string, min: number, max: number) => {
+    const x = Number(v(n));
+    return Number.isInteger(x) && x >= min && x <= max ? x : undefined;
+  };
+  const soglia = intero('soglia', 1, 1000);
+  const giorno = intero('giornoScadenza', 1, 28);
+  const giorniRichiesta = intero('giorniRichiesta', 1, 365);
+  const anticipo = intero('anticipo', 1, 365);
+  const inizio = normalizzaMese(v('inizio'));
+  if (soglia === undefined) return { errore: 'La soglia deve essere un numero intero tra 1 e 1000.' };
+  if (giorno === undefined) return { errore: 'Il giorno di scadenza deve essere tra 1 e 28.' };
+  if (giorniRichiesta === undefined || anticipo === undefined) return { errore: 'I giorni devono essere numeri interi tra 1 e 365.' };
+  if (!inizio) return { errore: 'Il mese di inizio controllo va scritto come aaaa-mm (es. 2026-11).' };
+  const nuovo: Dati = structuredClone(d);
+  Object.assign(nuovo.impostazioni, {
+    sogliaArretratoPercentuale: soglia,
+    giornoScadenzaAffitto: giorno,
+    giorniRitardoRichiesta: giorniRichiesta,
+    avvisoScadenzeGiorni: anticipo,
+    inizioMonitoraggio: inizio,
+  });
+  return { dati: nuovo };
+}
+
+// ---------- bozza di sollecito ----------
+
+/** Testo di sollecito pronto da copiare (da controllare e firmare prima dell'invio). */
+export function testoSollecito(d: Dati, contrattoId: string): string {
+  const c = d.contratti.find((x) => x.id === contrattoId);
+  if (!c) return '';
+  const inq = inquilinoDi(d, c);
+  const nome = inq ? `${inq.nome ?? ''} ${inq.cognome}`.trim() : c.inquilino ?? '';
+  const mesi = mesiArretrati(d, c);
+  const totale = mesi.reduce((s, m) => s + m.mancante, 0);
+  const elenco = mesi.map((m) => `- ${meseEsteso(m.mese).toLowerCase()}: ${euro(m.mancante)}`).join('\n');
+  const entro = aggiungiAData(oggi(), 0, 0);
+  const tra7 = new Date(Date.UTC(+entro.slice(0, 4), +entro.slice(5, 7) - 1, +entro.slice(8) + 7)).toISOString().slice(0, 10);
+  return [
+    `Gentile ${nome},`,
+    '',
+    `le scriviamo in merito al contratto per «${nomeContratto(d, c)}» (${c.unita.split(' - ')[0]}).`,
+    `Dai nostri conti risulta ancora da versare un importo di ${euro(totale)}, relativo a:`,
+    elenco,
+    '',
+    `La preghiamo di provvedere al pagamento entro il ${data(tra7)} oppure di contattarci per qualsiasi chiarimento.`,
+    'Se ha già provveduto, la preghiamo di non considerare questo messaggio.',
+    '',
+    'Cordiali saluti',
+  ].join('\n');
 }

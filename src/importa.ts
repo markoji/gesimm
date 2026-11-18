@@ -167,6 +167,7 @@ export async function leggiExcel(file: ArrayBuffer): Promise<RisultatoImport> {
       regime: testo(campo(r, 'Regime')),
       inquilino: inq,
       inizio: dataDa(campo(r, 'Data inizio')),
+      fine: dataDa(campo(r, 'Data fine')),
       durataAnni: durataTesto ? numeroDa(durataTesto.split('+')[0]) : undefined,
       rinnovoAnni: numeroDa(campo(r, 'Rinnovo')),
       canone: numeroDa(campo(r, 'Canone')),

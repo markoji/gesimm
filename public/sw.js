@@ -1,7 +1,8 @@
 // Service worker: tiene una copia dell'app sul dispositivo, così si apre anche senza rete.
 // NON salva mai i dati né i documenti di Dropbox: solo i file dell'app (pagina, stile, codice, icone).
 
-const CACHE = 'vetrina-v4';
+// Il nome cambia a ogni pubblicazione (lo scrive la build): le copie vecchie dell'app vengono cancellate.
+const CACHE = 'vetrina-__VERSIONE__';
 
 self.addEventListener('install', (e) => {
   // Entrambe le pagine: senza rete l'app del gestore non deve mai aprirsi come vetrina.

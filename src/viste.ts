@@ -4,11 +4,14 @@
 import type { Dati } from './modello';
 import {
   affittiDelMese,
+  anniConPagamenti,
+  riepilogoAnnuale,
   arretrato,
   attesoMensile,
   avvisi,
   bilancioAnno,
   contrattiAttivi,
+  cessato,
   fineInCorso,
   inquilinoDi,
   nomeContratto,
@@ -92,7 +95,9 @@ export function home(d: Dati, mese: string, gestore = false): string {
     </section>
     <a class="riga-pannelli" href="#/pannelli">${icona('solare')}<span>Pannelli solari</span><small>${
       pan.ultimoAggiornamento ? 'ultimo aggiornamento ' + data(pan.ultimoAggiornamento) : 'nessun dato ancora'
-    }</small>${icona('avanti')}</a>`;
+    }</small>${icona('avanti')}</a>${
+      gestore ? `<a class="riga-pannelli" href="#/impostazioni">${icona('impostazioni')}<span>Impostazioni</span><small>soglie degli avvisi e notifiche</small>${icona('avanti')}</a>` : ''
+    }`;
 }
 
 /** Riquadro "Affitti del mese": un cognome per contratto, quadratino verde/rosso. */
@@ -151,33 +156,33 @@ function affitti(d: Dati, mese: string, gestore: boolean): string {
 
 export function elencoContratti(d: Dati): string {
   const mese = meseDi(oggi());
-  const righe = [...d.contratti].sort((a, b) => nomeContratto(d, a).localeCompare(nomeContratto(d, b), 'it'));
-  return `
-    <section class="lista">
-      ${righe
-        .map((c) => {
+  const ordinati = [...d.contratti].sort((a, b) => nomeContratto(d, a).localeCompare(nomeContratto(d, b), 'it'));
+  const chiusi = ordinati.filter((c) => cessato(c));
+  const riga = (c: (typeof ordinati)[number]) => {
           const u = unitaDi(d, c.unita);
           const cognome = inquilinoDi(d, c)?.cognome ?? c.inquilino ?? '';
           const arr = arretrato(d, c);
           const att = attesoMensile(c);
           const pagatoMese = att > 0 && pagatoNelMese(d, c, mese).totale >= att;
-          const pill =
-            arr > 0
+          const pill = cessato(c) && arr <= 0
+            ? '<span class="pill n">Cessato</span>'
+            : arr > 0
               ? `<span class="pill r">Arretrato ${euro(arr)}</span>`
               : att > 0
                 ? `<span class="pill ${pagatoMese ? 'v' : 'n'}">${pagatoMese ? 'Pagato' : 'In attesa'}</span>`
                 : '';
-          return `<a class="riga" href="#/contratto/${encodeURIComponent(c.id)}">
+          return `<a class="riga${cessato(c) ? ' chiuso' : ''}" href="#/contratto/${encodeURIComponent(c.id)}">
             <div><div class="t">${esc(nomeContratto(d, c))}</div>
-            <div class="s">${esc(u?.immobile ?? '')} · ${esc(cognome)} · ${esc(c.tipo ?? '')}</div></div>
+            <div class="s">${esc(u?.immobile ?? '')} · ${esc(cognome)} · ${esc(c.tipo ?? '')}${cessato(c) ? ' · cessato il ' + data(c.fine) : ''}</div></div>
             <div class="r">${att > 0 ? euro(att) : '—'}<br>${pill}</div></a>`;
-        })
-        .join('')}
-    </section>
+  };
+  return `
+    <section class="lista">${ordinati.filter((c) => !cessato(c)).map(riga).join('')}</section>
+    ${chiusi.length ? `<h3 class="fuori">Contratti cessati</h3><section class="lista">${chiusi.map(riga).join('')}</section>` : ''}
     <button class="secondario largo" data-cartella="${esc(d.impostazioni.cartellaContratti)}">${icona('documenti')} Tutti i contratti su Dropbox ${icona('esterno')}</button>`;
 }
 
-export function schedaContratto(d: Dati, id: string): string {
+export function schedaContratto(d: Dati, id: string, gestore = false): string {
   const c = d.contratti.find((x) => x.id === id);
   if (!c) return `<p class="vuoto">Contratto non trovato.</p>`;
   const inq = inquilinoDi(d, c);
@@ -207,7 +212,13 @@ export function schedaContratto(d: Dati, id: string): string {
 
   return `
     <section class="scheda">
-      <div class="sottotitolo">${esc(u?.immobile ?? '')}${arr > 0 ? `<span class="pill r">Arretrato ${euro(arr)}</span>` : ''}</div>
+      <div class="sottotitolo">${esc(u?.immobile ?? '')}${cessato(c) ? `<span class="pill n">Cessato il ${data(c.fine)}</span>` : ''}${arr > 0 ? `<span class="pill r">Arretrato ${euro(arr)}</span>` : ''}</div>
+      ${
+        gestore && arr > 0
+          ? `<button class="secondario largo sollecito" data-sollecito="${esc(c.id)}">${icona('copia')} Copia una bozza di sollecito</button>
+             <p class="aiuto">Testo pronto da incollare in un messaggio o in un'email: controllalo e firmalo prima di inviarlo.</p>`
+          : ''
+      }
 
       <h3>Inquilino</h3>
       ${
@@ -225,7 +236,7 @@ export function schedaContratto(d: Dati, id: string): string {
       ${kv('Deposito cauzionale', c.deposito !== undefined ? euro(c.deposito) : undefined)}
       ${kv('Dal', c.inizio ? data(c.inizio) : undefined)}
       ${kv('Durata', c.durataAnni ? `${c.durataAnni}${c.rinnovoAnni ? '+' + c.rinnovoAnni : ''} anni` : undefined)}
-      ${kv('Fine periodo in corso', fine ? data(fine) : undefined)}
+      ${cessato(c) ? kv('Cessato il', data(c.fine)) : kv('Fine periodo in corso', fine ? data(fine) : undefined)}
       ${kv('Preavviso disdetta', c.preavvisoMesi ? c.preavvisoMesi + ' mesi' : undefined)}
       ${kv('Aggiornamento ISTAT', c.istat ? 'Sì' + (c.percentualeIstat ? ` (${c.percentualeIstat}%)` : '') : c.istat === false ? 'No' : undefined)}
       ${kv('Registrazione', [c.dataRegistrazione ? data(c.dataRegistrazione) : '', c.estremiRegistrazione ?? ''].filter(Boolean).join(' · ') || undefined)}
@@ -288,7 +299,7 @@ export function pannelli(d: Dati): string {
 
 // ---------- movimenti (pagamenti, spese, richieste, pannelli) ----------
 
-type Lista = 'pagamenti' | 'spese' | 'richieste' | 'fotovoltaico';
+type Lista = 'pagamenti' | 'spese' | 'richieste' | 'fotovoltaico' | 'riepilogo';
 
 /**
  * Registro di tutti i movimenti, dal più recente. Nell'app del gestore quelli registrati
@@ -300,7 +311,11 @@ export function movimenti(d: Dati, gestore: boolean, sezione: Lista = 'pagamenti
     ['spese', 'Spese', d.spese.length],
     ['richieste', 'Richieste', d.richieste.length],
     ['fotovoltaico', 'Pannelli', d.fotovoltaico.length],
+    ['riepilogo', 'Riepilogo annuale', anniConPagamenti(d).length],
   ];
+  if (sezione === 'riepilogo') return `<nav class="schede">${schede
+    .map(([k, t, n]) => `<a href="#/movimenti/${k}" class="${k === sezione ? 'attiva' : ''}">${t} <small>${n}</small></a>`)
+    .join('')}</nav>${riepilogo(d)}`;
   type Voce = { indice: number; data: string; titolo: string; dettaglio: string; importo?: number; origine?: string };
   let voci: Voce[] = [];
   if (sezione === 'pagamenti')
@@ -337,4 +352,29 @@ export function movimenti(d: Dati, gestore: boolean, sezione: Lista = 'pagamenti
           : `<p class="sm">Nessun movimento.</p>`
       }
     </section>`;
+}
+
+/** Riepilogo annuale degli incassi per unità e inquilino (utile per la dichiarazione dei redditi). */
+function riepilogo(d: Dati): string {
+  const anni = anniConPagamenti(d);
+  if (!anni.length) return '<p class="sm">Nessun pagamento registrato ancora.</p>';
+  return anni
+    .map((anno) => {
+      const righe = riepilogoAnnuale(d, anno);
+      const tot = righe.reduce((s, r) => s + r.canoni, 0);
+      const altro = righe.reduce((s, r) => s + r.altro, 0);
+      return `
+        <h3 class="fuori">${anno}</h3>
+        <section class="lista">
+          ${righe
+            .map(
+              (r) => `<div class="riga statica"><div><div class="t">${esc(r.unita)} · ${esc(r.inquilino)}</div><div class="s">${esc(r.immobile)}${r.altro ? ' · altre voci ' + euro(r.altro) : ''}</div></div>
+                <div class="r">${euro(r.canoni)}<br><small>canoni</small></div></div>`,
+            )
+            .join('')}
+          <div class="riga statica totale-anno"><div><div class="t">Totale canoni ${anno}</div>${altro ? `<div class="s">altre voci ${euro(altro)}</div>` : ''}</div><div class="r">${euro(tot)}</div></div>
+        </section>
+        <button class="secondario largo" data-scarica-riepilogo="${anno}">${icona('excel')} Scarica il riepilogo ${anno} (si apre con Excel)</button>`;
+    })
+    .join('') + '<p class="aiuto fuori">Somme degli incassi registrati, per mese di riferimento. Non è un calcolo delle imposte: verifica sempre con il commercialista.</p>';
 }

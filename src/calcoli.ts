@@ -24,8 +24,12 @@ export function fineInCorso(c: Contratto, alla: string = oggi()): string | undef
 
 /** Il contratto è attivo in quel mese? (iniziato; nessuna data di fine certa nei dati: resta attivo con i rinnovi) */
 export function attivoNelMese(c: Contratto, mese: string): boolean {
-  return !c.inizio || meseDi(c.inizio) <= mese;
+  // Iniziato e, se cessato, non ancora finito (il mese della cessazione conta ancora).
+  return (!c.inizio || meseDi(c.inizio) <= mese) && (!c.fine || meseDi(c.fine) >= mese);
 }
+
+/** Contratto chiuso (data di fine già passata). */
+export const cessato = (c: Contratto, alla: string = oggi()) => !!c.fine && c.fine < alla;
 
 export const contrattiAttivi = (d: Dati, mese = meseDi(oggi())) => d.contratti.filter((c) => attivoNelMese(c, mese));
 
@@ -101,21 +105,29 @@ export function affittiDelMese(d: Dati, mese: string): RigaAffitto[] {
 }
 
 /** Arretrato di un contratto dal mese di inizio monitoraggio a oggi. */
-export function arretrato(d: Dati, c: Contratto): number {
+/** Mesi non (del tutto) pagati, dal mese di inizio monitoraggio a oggi, con quanto manca. */
+export function mesiArretrati(d: Dati, c: Contratto): { mese: string; mancante: number }[] {
   const atteso = attesoMensile(c);
-  if (atteso <= 0) return 0;
+  if (atteso <= 0) return [];
   const oggiIso = oggi();
   let mese = d.impostazioni.inizioMonitoraggio;
   if (c.inizio && meseDi(c.inizio) > mese) mese = meseDi(c.inizio);
   const meseOggi = meseDi(oggiIso);
   const giornoOggi = Number(oggiIso.slice(8));
   // Il mese corrente conta solo dopo il giorno di scadenza dell'affitto.
-  const ultimo = giornoOggi > d.impostazioni.giornoScadenzaAffitto ? meseOggi : aggiungiMesi(meseOggi, -1);
-  let tot = 0;
+  let ultimo = giornoOggi > d.impostazioni.giornoScadenzaAffitto ? meseOggi : aggiungiMesi(meseOggi, -1);
+  if (c.fine && meseDi(c.fine) < ultimo) ultimo = meseDi(c.fine);
+  const out: { mese: string; mancante: number }[] = [];
   for (let i = 0; mese <= ultimo && i < 600; i++, mese = aggiungiMesi(mese, 1)) {
-    tot += Math.max(0, atteso - pagatoNelMese(d, c, mese).totale);
+    const manca = Math.round(Math.max(0, atteso - pagatoNelMese(d, c, mese).totale) * 100) / 100;
+    if (manca > 0) out.push({ mese, mancante: manca });
   }
-  return Math.round(tot * 100) / 100;
+  return out;
+}
+
+/** Arretrato di un contratto dal mese di inizio monitoraggio a oggi. */
+export function arretrato(d: Dati, c: Contratto): number {
+  return Math.round(mesiArretrati(d, c).reduce((s, m) => s + m.mancante, 0) * 100) / 100;
 }
 
 // ---------- scadenze ----------
@@ -149,6 +161,7 @@ export function scadenze(d: Dati): { elenco: Scadenza[]; daCompletare: ScadenzaD
   const daCompletare: ScadenzaDaCompletare[] = [];
 
   for (const c of d.contratti) {
+    if (cessato(c, oggiIso)) continue;
     const nome = nomeContratto(d, c);
     const cognome = inquilinoDi(d, c)?.cognome ?? c.inquilino ?? '';
     const rif = cognome ? `${nome} · ${cognome}` : nome;
@@ -207,7 +220,8 @@ export function avvisi(d: Dati): Avviso[] {
   const oggiIso = oggi();
   const soglia = d.impostazioni.sogliaArretratoPercentuale / 100;
 
-  for (const c of contrattiAttivi(d)) {
+  // Tutti i contratti, anche cessati: un inquilino uscito con un debito resta da sollecitare.
+  for (const c of d.contratti) {
     const a = arretrato(d, c);
     if (a <= 0) continue;
     const cognome = inquilinoDi(d, c)?.cognome ?? '';
@@ -263,3 +277,33 @@ export function pannelliAnno(d: Dati, anno: string) {
     .pop();
   return { gse: somma((v) => v.bonificoGse), prodotta: somma((v) => v.prodottaKwh), risparmio, ultimoAggiornamento: ultimo };
 }
+
+// ---------- riepilogo annuale (per la dichiarazione) ----------
+
+export interface RigaRiepilogo {
+  immobile: string;
+  unita: string;
+  inquilino: string;
+  canoni: number;
+  altro: number;
+}
+
+/**
+ * Per un anno: quanto è stato incassato per ogni unità e inquilino, separando i canoni
+ * (canone e spese fisse) dalle altre voci (quote autoclave, rimborsi, depositi…).
+ * L'anno è quello del mese di riferimento del pagamento. Non è un calcolo delle imposte.
+ */
+export function riepilogoAnnuale(d: Dati, anno: string): RigaRiepilogo[] {
+  const gruppi = new Map<string, RigaRiepilogo>();
+  for (const p of d.pagamenti.filter((x) => x.mese.startsWith(anno + '-'))) {
+    const chiave = p.unita + '|' + (p.inquilino ?? '');
+    const [immobile, ...resto] = p.unita.split(' - ');
+    const g = gruppi.get(chiave) ?? { immobile, unita: resto.join(' - ') || p.unita, inquilino: p.inquilino ?? '', canoni: 0, altro: 0 };
+    if (!p.voce || VOCI_AFFITTO.test(p.voce)) g.canoni += p.importo;
+    else g.altro += p.importo;
+    gruppi.set(chiave, g);
+  }
+  return [...gruppi.values()].sort((a, b) => (a.immobile + a.unita).localeCompare(b.immobile + b.unita, 'it'));
+}
+
+export const anniConPagamenti = (d: Dati) => [...new Set(d.pagamenti.map((p) => p.mese.slice(0, 4)))].sort().reverse();

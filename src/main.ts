@@ -14,6 +14,7 @@ import { esc, meseDi, oggi } from './formato';
 import * as viste from './viste';
 import * as dbx from './dropbox';
 import * as gestore from './gestore';
+import { avvisi, riepilogoAnnuale } from './calcoli';
 
 const GESTORE = document.documentElement.dataset.modalita === 'gestore';
 const DEMO = new URLSearchParams(location.search).has('demo');
@@ -174,16 +175,19 @@ function disegna() {
   } else if (sezione === 'contratto') {
     const c = dati.contratti.find((x) => x.id === id);
     titolo = c ? c.unita.split(' - ').slice(1).join(' - ') || c.unita : 'Contratto';
-    corpo = viste.schedaContratto(dati, id);
+    corpo = viste.schedaContratto(dati, id, GESTORE);
   } else if (sezione === 'scadenze') {
     titolo = 'Scadenze';
     corpo = viste.elencoScadenze(dati);
   } else if (sezione === 'pannelli') {
     titolo = 'Pannelli solari';
     corpo = viste.pannelli(dati);
+  } else if (sezione === 'impostazioni' && GESTORE) {
+    titolo = 'Impostazioni';
+    corpo = gestore.impostazioni(dati, statoNotifiche());
   } else if (sezione === 'movimenti') {
     titolo = 'Movimenti';
-    const sotto = (['pagamenti', 'spese', 'richieste', 'fotovoltaico'] as const).find((x) => x === id) ?? 'pagamenti';
+    const sotto = (['pagamenti', 'spese', 'richieste', 'fotovoltaico', 'riepilogo'] as const).find((x) => x === id) ?? 'pagamenti';
     corpo = viste.movimenti(dati, GESTORE, sotto);
   } else {
     corpo = viste.home(dati, meseScelto, GESTORE);
@@ -199,7 +203,7 @@ function disegna() {
       <span id="msg" role="status"></span>
       ${DEMO ? '<a href="./">Esci dalla dimostrazione</a>' : '<button class="link-btn" id="esci">Esci da Dropbox</button>'}
     </footer>
-    ${GESTORE && dati ? gestore.pulsanteRegistra(menuAperto) : ''}`;
+    ${GESTORE && dati && sezione !== 'impostazioni' ? gestore.pulsanteRegistra(menuAperto) : ''}`;
   document.body.classList.toggle('con-fab', GESTORE && !!dati);
   if (!inHome) window.scrollTo(0, 0);
 }
@@ -210,6 +214,53 @@ function messaggio(t: string) {
 }
 
 /** Messaggio che compare in basso per qualche secondo ("Salvato su Dropbox"). */
+/**
+ * Scarica il riepilogo di un anno come file CSV (si apre con Excel).
+ * Il file viene creato nel browser con i dati già presenti: non passa da nessun server.
+ */
+function scaricaRiepilogo(anno: string) {
+  if (!dati) return;
+  const cella = (s: string | number) => `"${String(s).replace(/"/g, '""')}"`;
+  const righe = riepilogoAnnuale(dati, anno);
+  const csv = [
+    ['Anno', 'Immobile', 'Unità', 'Inquilino', 'Canoni incassati (€)', 'Altre voci (€)'].map(cella).join(';'),
+    ...righe.map((r) => [anno, r.immobile, r.unita, r.inquilino, r.canoni.toFixed(2), r.altro.toFixed(2)].map(cella).join(';')),
+    ['', '', '', 'Totale', righe.reduce((s, r) => s + r.canoni, 0).toFixed(2), righe.reduce((s, r) => s + r.altro, 0).toFixed(2)].map(cella).join(';'),
+  ].join('\r\n');
+  // Il BOM iniziale fa leggere correttamente gli accenti a Excel.
+  const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
+  const a = Object.assign(document.createElement('a'), { href: url, download: `Riepilogo incassi ${anno}.csv` });
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+/** Stato delle notifiche di sistema (Windows/macOS) per l'app del gestore. */
+function statoNotifiche(): 'attive' | 'spente' | 'bloccate' | 'non_disponibili' {
+  if (!('Notification' in window)) return 'non_disponibili';
+  return Notification.permission === 'granted' ? 'attive' : Notification.permission === 'denied' ? 'bloccate' : 'spente';
+}
+
+/** Una volta al giorno, se ci sono avvisi urgenti, una notifica di sistema (solo gestore, solo se attivate). */
+function notificaAvvisiUrgenti() {
+  if (!GESTORE || DEMO || !dati || statoNotifiche() !== 'attive') return;
+  const urgenti = avvisi(dati).filter((a) => a.livello === 'urgente');
+  if (!urgenti.length) return;
+  try {
+    if (localStorage.getItem('gg.notificatoIl') === oggi()) return;
+    localStorage.setItem('gg.notificatoIl', oggi());
+  } catch {
+    /* ignora */
+  }
+  const n = new Notification('Gestione immobili', {
+    body: `${urgenti.length} ${urgenti.length === 1 ? 'avviso urgente' : 'avvisi urgenti'}: ${urgenti[0].testo}${urgenti.length > 1 ? '…' : ''}`,
+    icon: './icona-192.png',
+    tag: 'avvisi-urgenti',
+  });
+  n.onclick = () => window.focus();
+}
+
 let timerNotifica = 0;
 function notifica(t: string, tipo: 'ok' | 'errore' = 'ok') {
   boxNotifica.textContent = t;
@@ -222,7 +273,7 @@ function notifica(t: string, tipo: 'ok' | 'errore' = 'ok') {
 
 document.addEventListener('click', (e) => {
   const el = (e.target as HTMLElement).closest<HTMLElement>(
-    '[data-mese],[data-copia],[data-cartella],#esci,[data-registra],[data-apri-modulo],[data-registra-pagamento],[data-chiudi-modulo],[data-richiesta-pagata],[data-modifica],[data-elimina]',
+    '[data-mese],[data-copia],[data-cartella],#esci,[data-registra],[data-apri-modulo],[data-registra-pagamento],[data-chiudi-modulo],[data-richiesta-pagata],[data-modifica],[data-elimina],[data-attiva-notifiche],[data-sollecito],[data-scarica-riepilogo]',
   );
   if (!el) return;
   const ds = el.dataset;
@@ -265,6 +316,15 @@ document.addEventListener('click', (e) => {
     apriModulo('pagamento', { contratto: ds.registraPagamento, mese: ds.mesePagamento });
   } else if (ds.chiudiModulo !== undefined) {
     chiudiModulo();
+  } else if (ds.attivaNotifiche !== undefined) {
+    void Notification.requestPermission().then(() => {
+      disegna();
+      if (Notification.permission === 'granted') notifica('Notifiche attivate');
+    });
+  } else if (ds.sollecito && dati) {
+    void copia(gestore.testoSollecito(dati, ds.sollecito), el);
+  } else if (ds.scaricaRiepilogo && dati) {
+    scaricaRiepilogo(ds.scaricaRiepilogo);
   } else if (ds.richiestaPagata !== undefined && dati) {
     void salva(gestore.richiestaPagata(dati, Number(ds.richiestaPagata)), 'Richiesta segnata come pagata');
   }
@@ -278,6 +338,16 @@ document.addEventListener('change', (e) => {
 
 document.addEventListener('submit', (e) => {
   const form = e.target as HTMLFormElement;
+  if (form.matches('form.impostazioni') && dati) {
+    e.preventDefault();
+    const r = gestore.applicaImpostazioni(dati, form);
+    if ('errore' in r) {
+      form.querySelector('.errore-form')!.textContent = r.errore;
+      return;
+    }
+    void salva(r.dati, 'Impostazioni salvate');
+    return;
+  }
   if (!form.matches('.foglio[data-tipo]') || !dati) return;
   e.preventDefault();
   // Se si sta correggendo un movimento, controlliamo che sia ancora lo stesso (i dati potrebbero
@@ -536,6 +606,7 @@ async function aggiornaOra(riprova: boolean): Promise<void> {
     salvaCache(nuovi);
     stato = { tipo: 'online' };
     disegna();
+    notificaAvvisiUrgenti();
   } catch (e) {
     if (e instanceof dbx.ErroreDropbox && e.tipo === 'non_collegato') return schermataLogin(e.message);
     if (e instanceof dbx.ErroreDropbox && e.tipo === 'non_trovato' && riprova) {

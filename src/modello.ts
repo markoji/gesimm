@@ -63,6 +63,8 @@ export interface Contratto {
   inquilino?: string;
   /** Data ISO aaaa-mm-gg. */
   inizio?: string;
+  /** Data di fine (contratto cessato). Dopo questa data non conta più negli affitti e nelle scadenze. */
+  fine?: string;
   durataAnni?: number;
   rinnovoAnni?: number;
   canone?: number;
