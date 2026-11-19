@@ -34,6 +34,19 @@ export const cessato = (c: Contratto, alla: string = oggi()) => !!c.fine && c.fi
 export const contrattiAttivi = (d: Dati, mese = meseDi(oggi())) => d.contratti.filter((c) => attivoNelMese(c, mese));
 
 export const inquilinoDi = (d: Dati, c: Contratto): Inquilino | undefined => d.inquilini.find((i) => i.id === c.inquilino);
+
+/** Cognomi di tutti gli inquilini del contratto (principale + altri). */
+export const cognomiDi = (c: Contratto): string[] => [c.inquilino, ...(c.coinquilini ?? [])].filter((x): x is string => !!x);
+
+/** Tutti gli inquilini del contratto con i loro dati (chi non è nel foglio Inquilini compare solo col cognome). */
+export const inquiliniDi = (d: Dati, c: Contratto): (Inquilino | string)[] =>
+  cognomiDi(c).map((cog) => d.inquilini.find((i) => i.id === cog) ?? cog);
+
+/** "Rossi e Bianchi" — come mostrare chi abita in un contratto. */
+export const nomiInquilini = (c: Contratto): string => {
+  const l = cognomiDi(c);
+  return l.length > 1 ? l.slice(0, -1).join(', ') + ' e ' + l[l.length - 1] : l[0] ?? '';
+};
 export const unitaDi = (d: Dati, id: string | undefined): Unita | undefined => d.unita.find((u) => u.id === id);
 
 /** Nome breve dell'unità: "Piano terra esterno" (+ pertinenza). */
@@ -56,7 +69,7 @@ export function pagatoNelMese(d: Dati, c: Contratto, mese: string) {
       unita.includes(p.unita) &&
       // Se il pagamento indica chi ha pagato, deve essere l'inquilino di questo contratto
       // (così, se un appartamento cambia inquilino, i pagamenti non si mescolano).
-      (!p.inquilino || !c.inquilino || p.inquilino === c.inquilino) &&
+      (!p.inquilino || !c.inquilino || cognomiDi(c).includes(p.inquilino)) &&
       (!p.voce || VOCI_AFFITTO.test(p.voce)),
   );
   const totale = voci.reduce((s, p) => s + p.importo, 0);
@@ -94,7 +107,7 @@ export function affittiDelMese(d: Dati, mese: string): RigaAffitto[] {
       else stato = 'da_pagare';
       return {
         contratto: c,
-        cognome: inquilinoDi(d, c)?.cognome ?? c.inquilino ?? '—',
+        cognome: nomiInquilini(c) || '—',
         atteso,
         pagato: totale,
         stato,
@@ -163,7 +176,7 @@ export function scadenze(d: Dati): { elenco: Scadenza[]; daCompletare: ScadenzaD
   for (const c of d.contratti) {
     if (cessato(c, oggiIso)) continue;
     const nome = nomeContratto(d, c);
-    const cognome = inquilinoDi(d, c)?.cognome ?? c.inquilino ?? '';
+    const cognome = nomiInquilini(c);
     const rif = cognome ? `${nome} · ${cognome}` : nome;
     const fine = fineInCorso(c, oggiIso);
     if (fine) {
@@ -224,7 +237,7 @@ export function avvisi(d: Dati): Avviso[] {
   for (const c of d.contratti) {
     const a = arretrato(d, c);
     if (a <= 0) continue;
-    const cognome = inquilinoDi(d, c)?.cognome ?? '';
+    const cognome = nomiInquilini(c);
     const sopra = a >= attesoMensile(c) * soglia;
     out.push({
       livello: sopra ? 'urgente' : 'attenzione',

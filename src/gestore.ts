@@ -4,7 +4,7 @@
 
 import { CONFIG } from './config';
 import type { Dati, Pagamento, Richiesta, Spesa, VoceFotovoltaico } from './modello';
-import { attesoMensile, contrattiAttivi, inquilinoDi, mesiArretrati, nomeContratto, pagatoNelMese } from './calcoli';
+import { attesoMensile, contrattiAttivi, inquiliniDi, mesiArretrati, nomeContratto, nomiInquilini, pagatoNelMese } from './calcoli';
 import { aggiungiAData, aggiungiMesi, data, esc, euro, leggiImporto, meseDi, meseEsteso, normalizzaMese, oggi } from './formato';
 import { icona } from './icone';
 import * as dbx from './dropbox';
@@ -80,7 +80,7 @@ const opzioniRiferimento = (d: Dati, scelto?: string) => {
 
 const opzioniContratti = (d: Dati, scelto?: string) =>
   contrattiAttivi(d)
-    .map((c) => `<option value="${esc(c.id)}" ${c.id === scelto ? 'selected' : ''}>${esc(nomeContratto(d, c))} · ${esc(inquilinoDi(d, c)?.cognome ?? c.inquilino ?? '')}</option>`)
+    .map((c) => `<option value="${esc(c.id)}" ${c.id === scelto ? 'selected' : ''}>${esc(nomeContratto(d, c))} · ${esc(nomiInquilini(c))}</option>`)
     .join('');
 
 const segmenti = (nome: string, valori: string[], scelto: string) =>
@@ -239,7 +239,7 @@ export function applicaModulo(d: Dati, form: HTMLFormElement): { dati: Dati; mes
     const modalita = (form.querySelector<HTMLInputElement>('input[name="modalita"]:checked')?.value ?? 'Bonifico');
     const p: Pagamento = { origine: 'app', data: v('data') || oggi(), unita: c.unita, inquilino: c.inquilino, mese, voce: v('voce') || 'Canone', importo, modalita, note: v('note') || undefined };
     metti(nuovo.pagamenti, p);
-    return { dati: nuovo, messaggio: fatto(`Pagamento di ${euro(importo)} registrato (${c.inquilino ?? nomeContratto(d, c)})`) };
+    return { dati: nuovo, messaggio: fatto(`Pagamento di ${euro(importo)} registrato (${nomiInquilini(c) || nomeContratto(d, c)})`) };
   }
   if (tipo === 'spesa') {
     const importo = num('importo');
@@ -265,7 +265,7 @@ export function applicaModulo(d: Dati, form: HTMLFormElement): { dati: Dati; mes
       pagataIl: indice === undefined ? undefined : d.richieste[indice]?.pagataIl,
     };
     metti(nuovo.richieste, r);
-    return { dati: nuovo, messaggio: fatto(`Richiesta a ${c.inquilino ?? nomeContratto(d, c)} registrata: ti avviso se non arriva il pagamento`) };
+    return { dati: nuovo, messaggio: fatto(`Richiesta a ${nomiInquilini(c) || nomeContratto(d, c)} registrata: ti avviso se non arriva il pagamento`) };
   }
   // pannelli
   if (!mese) return { errore: 'Indica il mese (es. 2026-11 oppure 11/2026).' };
@@ -370,15 +370,15 @@ export function applicaImpostazioni(d: Dati, form: HTMLFormElement): { dati: Dat
 export function testoSollecito(d: Dati, contrattoId: string): string {
   const c = d.contratti.find((x) => x.id === contrattoId);
   if (!c) return '';
-  const inq = inquilinoDi(d, c);
-  const nome = inq ? `${inq.nome ?? ''} ${inq.cognome}`.trim() : c.inquilino ?? '';
+  const nomi = inquiliniDi(d, c).map((i) => (typeof i === 'string' ? i : `${i.nome ?? ''} ${i.cognome}`.trim()));
+  const nome = nomi.length > 1 ? nomi.slice(0, -1).join(', ') + ' e ' + nomi[nomi.length - 1] : nomi[0] ?? '';
   const mesi = mesiArretrati(d, c);
   const totale = mesi.reduce((s, m) => s + m.mancante, 0);
   const elenco = mesi.map((m) => `- ${meseEsteso(m.mese).toLowerCase()}: ${euro(m.mancante)}`).join('\n');
   const entro = aggiungiAData(oggi(), 0, 0);
   const tra7 = new Date(Date.UTC(+entro.slice(0, 4), +entro.slice(5, 7) - 1, +entro.slice(8) + 7)).toISOString().slice(0, 10);
   return [
-    `Gentile ${nome},`,
+    `${nomi.length > 1 ? 'Gentili' : 'Gentile'} ${nome},`,
     '',
     `le scriviamo in merito al contratto per «${nomeContratto(d, c)}» (${c.unita.split(' - ')[0]}).`,
     `Dai nostri conti risulta ancora da versare un importo di ${euro(totale)}, relativo a:`,

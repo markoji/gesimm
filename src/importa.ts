@@ -166,6 +166,7 @@ export async function leggiExcel(file: ArrayBuffer): Promise<RisultatoImport> {
       tipo: testo(campo(r, 'Tipo contratto')),
       regime: testo(campo(r, 'Regime')),
       inquilino: inq,
+      coinquilini: (testo(campo(r, 'Altri inquilini')) ?? '').split(/[,;/]| e /).map((s) => s.trim()).filter(Boolean),
       inizio: dataDa(campo(r, 'Data inizio')),
       fine: dataDa(campo(r, 'Data fine')),
       durataAnni: durataTesto ? numeroDa(durataTesto.split('+')[0]) : undefined,
@@ -262,7 +263,7 @@ export async function leggiExcel(file: ArrayBuffer): Promise<RisultatoImport> {
   for (const c of contratti) {
     if (!idUnita.has(c.unita)) avvisi.push(`Contratti: unità "${c.unita}" non presente nel foglio Unità.`);
     if (c.pertinenza && !idUnita.has(c.pertinenza)) avvisi.push(`Contratti: pertinenza "${c.pertinenza}" non presente nel foglio Unità.`);
-    if (c.inquilino && !idInquilini.has(c.inquilino)) avvisi.push(`Contratti: inquilino "${c.inquilino}" non presente nel foglio Inquilini.`);
+    for (const q of [c.inquilino, ...(c.coinquilini ?? [])]) if (q && !idInquilini.has(q)) avvisi.push(`Contratti: inquilino "${q}" non presente nel foglio Inquilini.`);
     if (!c.inizio) avvisi.push(`Contratti: "${c.unita}" senza data di inizio.`);
   }
 

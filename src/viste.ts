@@ -13,7 +13,8 @@ import {
   contrattiAttivi,
   cessato,
   fineInCorso,
-  inquilinoDi,
+  inquiliniDi,
+  nomiInquilini,
   nomeContratto,
   pagatoNelMese,
   pannelliAnno,
@@ -160,7 +161,7 @@ export function elencoContratti(d: Dati): string {
   const chiusi = ordinati.filter((c) => cessato(c));
   const riga = (c: (typeof ordinati)[number]) => {
           const u = unitaDi(d, c.unita);
-          const cognome = inquilinoDi(d, c)?.cognome ?? c.inquilino ?? '';
+          const cognome = nomiInquilini(c);
           const arr = arretrato(d, c);
           const att = attesoMensile(c);
           const pagatoMese = att > 0 && pagatoNelMese(d, c, mese).totale >= att;
@@ -185,7 +186,7 @@ export function elencoContratti(d: Dati): string {
 export function schedaContratto(d: Dati, id: string, gestore = false): string {
   const c = d.contratti.find((x) => x.id === id);
   if (!c) return `<p class="vuoto">Contratto non trovato.</p>`;
-  const inq = inquilinoDi(d, c);
+  const inquilini = inquiliniDi(d, c);
   const u = unitaDi(d, c.unita);
   const p = unitaDi(d, c.pertinenza);
   const arr = arretrato(d, c);
@@ -220,13 +221,19 @@ export function schedaContratto(d: Dati, id: string, gestore = false): string {
           : ''
       }
 
-      <h3>Inquilino</h3>
+      <h3>${inquilini.length > 1 ? 'Inquilini' : 'Inquilino'}</h3>
       ${
-        inq
-          ? `<div class="nome-inq">${esc(inq.cognome)} ${esc(inq.nome ?? '')}</div>
+        inquilini.length
+          ? inquilini
+              .map((inq, n) =>
+                typeof inq === 'string'
+                  ? `<div class="nome-inq${n ? ' altro' : ''}">${esc(inq)}</div><p class="aiuto">Dati non presenti nel foglio Inquilini dell'Excel.</p>`
+                  : `<div class="nome-inq${n ? ' altro' : ''}">${esc(inq.cognome)} ${esc(inq.nome ?? '')}</div>
              ${copiabile('Nome e cognome', `${inq.nome ?? ''} ${inq.cognome}`.trim())}
-             ${inq.campi.map((f) => copiabile(f.etichetta, f.valore)).join('')}`
-          : `<p class="sm">${esc(c.inquilino ?? 'Nessun inquilino indicato')}</p>`
+             ${inq.campi.map((f) => copiabile(f.etichetta, f.valore)).join('')}`,
+              )
+              .join('')
+          : `<p class="sm">Nessun inquilino indicato</p>`
       }
 
       <h3>Contratto</h3>

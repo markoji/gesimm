@@ -61,6 +61,8 @@ export interface Contratto {
   tipo?: string;
   regime?: string;
   inquilino?: string;
+  /** Altri inquilini dello stesso contratto (cognomi), oltre a quello principale. */
+  coinquilini?: string[];
   /** Data ISO aaaa-mm-gg. */
   inizio?: string;
   /** Data di fine (contratto cessato). Dopo questa data non conta più negli affitti e nelle scadenze. */

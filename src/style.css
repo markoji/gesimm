@@ -279,6 +279,7 @@ body.con-fab #app { padding-bottom: 96px; }
 .aiuto { display: block; font-size: 12px; color: var(--testo-3); margin-top: 4px; }
 .riga.chiuso .t { color: var(--testo-2); }
 .sollecito { margin-top: 12px; }
+.nome-inq.altro { margin-top: 18px; padding-top: 14px; border-top: 0.5px solid var(--bordo); }
 .totale-anno .t { font-weight: 700; }
 .totale-anno .r { font-weight: 700; }
 p.aiuto.fuori { margin: 12px 4px; }

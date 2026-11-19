@@ -139,6 +139,17 @@
           "valore": "320 000 0005"
         }
       ]
+    },
+    {
+      "id": "Grigi",
+      "cognome": "Grigi",
+      "nome": "Luca",
+      "campi": [
+        {
+          "etichetta": "Telefono",
+          "valore": "320 000 0006"
+        }
+      ]
     }
   ],
   "contratti": [
@@ -171,7 +182,10 @@
       "modalita": "Bonifico",
       "istat": true,
       "percentualeIstat": 100,
-      "preavvisoMesi": 6
+      "preavvisoMesi": 6,
+      "coinquilini": [
+        "Grigi"
+      ]
     },
     {
       "id": "C",
